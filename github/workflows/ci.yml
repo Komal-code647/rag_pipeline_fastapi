@@ -21,6 +21,11 @@ jobs:
     - name: Install Dependencies
       run: |
         pip install -r requirements.txt
+        
+    - name: Download HuggingFace model
+      run: |
+        pip install huggingface_hub
+        huggingface-cli download sentence-transformers/all-MiniLM-L6-v2 --local-dir ~/.cache/huggingface/hub/models--sentence-transformers--all-MiniLM-L6-v2
  
     - name: Test Import
       env:
