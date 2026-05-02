@@ -9,7 +9,7 @@ except ModuleNotFoundError:
  
 app = FastAPI()
  
-qa_chain = create_rag_pipeline()
+qa_chain = None
  
 class Query(BaseModel):
     query: str
@@ -20,6 +20,9 @@ def home():
  
 @app.post("/ask")
 def ask(q : Query):
+    global qa_chain
+    if qa_chain is None:
+        qa_chain = create_rag_pipeline()
     result = qa_chain.invoke({"question": q.query})
     response = result['answer']
  
