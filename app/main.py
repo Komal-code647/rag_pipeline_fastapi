@@ -1,7 +1,7 @@
 # FastAPI - REST API Key
 from fastapi import FastAPI
 from pydantic import BaseModel
-
+ 
 try:
     from app.rag_pipeline import create_rag_pipeline
 except ModuleNotFoundError:
@@ -25,4 +25,5 @@ def ask(q : Query):
  
     sources = result.get('source_documents', [])
     return {"response": response, "sources": sources}
+ 
  

@@ -1,7 +1,5 @@
 import os
-from sentence_transformers import SentenceTransformer
-SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-
+os.environ.setdefault('HF_HUB_OFFLINE', '1')
 from dotenv import load_dotenv
 from langchain_community.document_loaders import CSVLoader, JSONLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -16,43 +14,29 @@ import time
  
 load_dotenv()
  
-from dotenv import load_dotenv
-from langchain_community.document_loaders import CSVLoader, JSONLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore[import]
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.memory import ConversationBufferMemory
-from langchain_core.prompts import PromptTemplate
-from langchain.chains import ConversationalRetrievalChain
-import jq
-import time
-import os
-import warnings
-warnings.filterwarnings("ignore")
- 
-load_dotenv()
- 
-from sentence_transformers import SentenceTransformer
-SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
- 
 def create_rag_pipeline():
     try:
-        # load embeddings
-        hf_embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        if os.path.exists("faiss_medical_store"):
+        # load embeddings using the local HuggingFace cache only
+        hf_embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            cache_folder=os.path.expanduser("~/.cache/huggingface/hub"),
+            model_kwargs={"device": "cpu", "local_files_only": True},
+        )
+        if os.path.exists("faiss_store"):
             print("Vector store already exists. Loading the existing store...")
             # Try to load the vector store
             faiss_store = FAISS.load_local("faiss_store", embeddings=hf_embeddings, allow_dangerous_deserialization=True)
             print("Vector store loaded successfully.")
         else:
             jq_schema = ".[] | {instruction: .instruction, input: .input, output: .output}"
+ 
             medical_json_loader = JSONLoader(file_path="data/chatdoctor5k.json",
                                         jq_schema = jq_schema,
                                         text_content = False
                                         )
  
             medical_json_docs = medical_json_loader.load()
+ 
             medical_csv_loader = CSVLoader(file_path="data/format_dataset.csv")
             medical_csv_docs = medical_csv_loader.load()
             final_medical_docs = medical_csv_docs + medical_json_docs
@@ -62,9 +46,10 @@ def create_rag_pipeline():
                                                             separators = ["\n\n", "\n", " ", "", ".",",", ";"])
  
             recursive_tokens = recursive_splitter.split_documents(final_medical_docs)
-            # print(f"{'*'*100}\nNo of tokens generated: {len(recursive_tokens)}\n{'*'*100}")
+ 
             faiss_store = FAISS.from_documents(documents = recursive_tokens, embedding=hf_embeddings)
-            faiss_store.save_local("faiss_medical_store")
+ 
+            faiss_store.save_local("faiss_store")
  
         llm = ChatGoogleGenerativeAI(model = "gemini-2.5-flash-lite",max_output_tokens = 4000,temperature = 0.7)
         memory = ConversationBufferMemory(memory_key = "chat_history", return_messages=True, output_key='answer')
@@ -106,5 +91,6 @@ def create_rag_pipeline():
     except Exception as e:
         print(f"An error occurred while initializing the RAG pipeline: {str(e)}")
         raise e
+ 
  
  
